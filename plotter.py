@@ -1,7 +1,16 @@
 from pyaxidraw import axidraw 
 
+from settings import VERBOSE
+
+MM_PER_PIXEL = 0.352777778
+DEFAULT_X_MAX = 500 * MM_PER_PIXEL
+DEFAULT_Y_MAX = 500 * MM_PER_PIXEL
+
 class PlotterManager:
-    def __init__(self) -> None:
+    def __init__(self, x_max=DEFAULT_X_MAX, y_max=DEFAULT_Y_MAX) -> None:
+        self.x_max = x_max
+        self.y_max = y_max
+
         # Set up the AxiDraw
         ad = axidraw.AxiDraw()
 
@@ -32,12 +41,14 @@ class PlotterManager:
 
     def moveto(self, x, y):
         if self.ad:
-            print("Moving AxiDraw to ({}, {})...".format(x, y))
+            if VERBOSE:
+                print("Moving AxiDraw to ({}, {})...".format(x, y))
             self.ad.moveto(x, y)
     
     def goto(self, x, y):
         if self.ad:
-            print("Going to ({}, {})...".format(x, y))
+            if VERBOSE:
+                print("Going to ({}, {})...".format(x, y))
             self.ad.goto(x, y)
 
     def lift_pen(self):
@@ -63,6 +74,26 @@ class PlotterManager:
             print("Homing AxiDraw...")
             self.lift_pen()
             self.ad.goto(0, 0)
+    
+    def go_top_left(self):
+        if self.ad:
+            print("Going to top left...")
+            self.ad.moveto(0, 0)
+    
+    def go_top_right(self):
+        if self.ad:
+            print("Going to top right...")
+            self.ad.moveto(self.x_max, 0)
+
+    def go_bottom_left(self):
+        if self.ad:
+            print("Going to bottom left...")
+            self.ad.moveto(0, self.y_max)
+
+    def go_bottom_right(self):
+        if self.ad:
+            print("Going to bottom right...")
+            self.ad.moveto(self.x_max, self.y_max)
 
     def on_exit(self):
         self.home_axidraw()

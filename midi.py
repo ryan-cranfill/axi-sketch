@@ -1,13 +1,36 @@
 import mido
-import random
+from dataclasses import dataclass
+
+from settings import VERBOSE
+
+
+@dataclass
+class MidiUpdate:
+    x_change: int = 0 # The amount of steps to change the x position by
+    y_change: int = 0 # The amount of steps to change the y position by
+    pen_toggle: bool = False # The pen should be toggled
+    go_home: bool = False # The pen should go home
+    go_bottom_left: bool = False # The pen should go to the bottom left corner
+    go_bottom_right: bool = False # The pen should go to the bottom right corner
+    go_top_right: bool = False # The pen should go to the top right corner
+    go_top_left: bool = False # The pen should go to the top left corner
+
 
 class MidiManager:
     def __init__(self, x_control_channel=6, y_control_channel=2) -> None:
         self.x_control_channel = x_control_channel
         self.y_control_channel = y_control_channel
-        self.pen_control_channel = 40
+        
+        self.pen_up_control_channel = 40
+        self.go_home_control_channel = 39
+        self.go_bottom_left_control_channel = 79
+        self.go_bottom_right_control_channel = 80
+        self.go_top_right_control_channel = 72
+        self.go_top_left_control_channel = 71
+        
         self.x_val = None
         self.y_val = None
+
         # Show the available MIDI devices
         print("Available MIDI devices:")
         for device in mido.get_output_names():
@@ -23,14 +46,15 @@ class MidiManager:
             self.inport = None
             return
     
-    def update(self) -> (int, int):
-        # Listen for messages
-        x_change = 0 # Track the amount of change in the x value
-        y_change = 0 # Track the amount of change in the y value
-        pen_toggle = False # Track whether the pen should be toggled
+    def update(self) -> MidiUpdate:
+        # Process midi messages that have happened since the last update
+        update: MidiUpdate = MidiUpdate()
+
         if self.inport:
             for msg in self.inport.iter_pending():
-                print(msg)
+                if VERBOSE: 
+                    print(msg)
+
                 if msg.type == "control_change":
                     val = msg.value
                     if msg.control == self.x_control_channel:
@@ -39,11 +63,11 @@ class MidiManager:
 
                         # We can't reset the value, so we need to check if the last value was the min (0) or max (127) and if so, increment or decrement the change
                         if self.x_val == 0 and val == 0:
-                            x_change -= 1
+                            update.x_change -= 1
                         elif self.x_val == 127 and val == 127:
-                            x_change += 1
+                            update.x_change += 1
                         else:
-                            x_change += val - self.x_val
+                            update.x_change += val - self.x_val
                         self.x_val = val
                     elif msg.control == self.y_control_channel:
                         if self.y_val is None:
@@ -51,17 +75,34 @@ class MidiManager:
 
                         # We can't reset the value, so we need to check if the last value was the min (0) or max (127) and if so, increment or decrement the change
                         if self.y_val == 0 and val == 0:
-                            y_change -= 1
+                            update.y_change -= 1
                         elif self.y_val == 127 and val == 127:
-                            y_change += 1
+                            update.y_change += 1
                         else:
-                            y_change += val - self.y_val
+                            update.y_change += val - self.y_val
                         self.y_val = val
                     
-                    elif msg.control == self.pen_control_channel:
-                        pen_toggle = True
+                    elif msg.control == self.pen_up_control_channel:
+                        # Toggle the pen up or down, and do the same in turtle
+                        update.pen_toggle = True
+                    
+                    elif msg.control == self.go_home_control_channel:
+                        # Signal to home the pen
+                        update.go_home = True
+                    
+                    elif msg.control == self.go_bottom_left_control_channel:
+                        update.go_bottom_left = True
+                    
+                    elif msg.control == self.go_bottom_right_control_channel:
+                        update.go_bottom_right = True
+
+                    elif msg.control == self.go_top_right_control_channel:
+                        update.go_top_right = True
+
+                    elif msg.control == self.go_top_left_control_channel:
+                        update.go_top_left = True
         
-        return 0 - x_change, 0 - y_change, pen_toggle  # Return the negative values because the knobs are backwards
+        return update  # Return the negative values because the knobs are backwards
 
 
     def on_exit(self):
