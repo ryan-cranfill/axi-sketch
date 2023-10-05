@@ -21,6 +21,7 @@ MIN_Y = 0 - MAX_Y
 
 ARROW_KEY_MULTIPLIER = 4
 
+pen_is_down = False
 
 # Set up the turtle window
 turtle.setup(width=WINDOW_WIDTH, height=WINDOW_HEIGHT)
@@ -153,6 +154,27 @@ def bind_key(key):
 for key in key_directions:
     bind_key(key)
 
+def toggle_pen():
+    global pen_is_down
+    pen_is_down = not pen_is_down
+
+    if pen_is_down:
+        t.pendown()
+        plotter.lower_pen()
+
+    else:
+        t.penup()
+        plotter.lift_pen()
+
+# Bind the space bar to toggle the pen
+turtle.onkeypress(toggle_pen, "space")
+# Make the pen start in the up position
+t.penup()
+
+# Bind the escape and quit keys to exit
+turtle.onkeypress(on_exit, "Escape")
+turtle.onkeypress(on_exit, "q")
+
 # Start listening for key inputs
 turtle.listen()
 
@@ -161,7 +183,7 @@ while True:
     x, y, pen_toggle = midi.update()
     
     if pen_toggle:
-        plotter.toggle_pen()
+        toggle_pen()
 
     for key in keys_pressed:
         x_step, y_step = key_directions[key]
