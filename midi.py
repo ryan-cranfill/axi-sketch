@@ -1,7 +1,13 @@
 import mido
+import math
 from dataclasses import dataclass
 
+import presets
 from settings import VERBOSE
+
+
+def clamp(n, minn, maxn):
+    return max(min(maxn, n), minn)
 
 
 @dataclass
@@ -17,16 +23,18 @@ class MidiUpdate:
 
 
 class MidiManager:
-    def __init__(self, x_control_channel=6, y_control_channel=2) -> None:
-        self.x_control_channel = x_control_channel
-        self.y_control_channel = y_control_channel
+    def __init__(self, preset: presets.ControllerPreset = presets.bcr2000) -> None:
+        self.preset = preset
+        self.control_listen_channel = preset.control_channel
+        self.x_control_channel = preset.x_control_channel
+        self.y_control_channel = preset.y_control_channel
         
-        self.pen_up_control_channel = 40
-        self.go_home_control_channel = 39
-        self.go_bottom_left_control_channel = 79
-        self.go_bottom_right_control_channel = 80
-        self.go_top_right_control_channel = 72
-        self.go_top_left_control_channel = 71
+        self.pen_up_control_channel = preset.pen_up_control_channel
+        self.go_home_control_channel = preset.go_home_control_channel
+        self.go_bottom_left_control_channel = preset.go_bottom_left_control_channel
+        self.go_bottom_right_control_channel = preset.go_bottom_right_control_channel
+        self.go_top_right_control_channel = preset.go_top_right_control_channel
+        self.go_top_left_control_channel = preset.go_top_left_control_channel
         
         self.x_val = None
         self.y_val = None
@@ -39,7 +47,8 @@ class MidiManager:
         try:
             self.outport = mido.open_output()
             self.inport = mido.open_input()
-            print("Using MIDI device: {}".format(self.outport))
+            print("Using MIDI out device: {}".format(self.outport))
+            print("Using MIDI in device: {}".format(self.inport))
         except:
             print("No MIDI devices found")
             self.outport = None
@@ -53,7 +62,10 @@ class MidiManager:
         if self.inport:
             for msg in self.inport.iter_pending():
                 if VERBOSE: 
-                    print(msg)
+                    print('IGNORED' if msg.channel != self.control_listen_channel else '', msg)
+                
+                if not msg.channel == self.control_listen_channel:
+                    continue
 
                 if msg.type == "control_change":
                     val = msg.value
@@ -62,25 +74,34 @@ class MidiManager:
                             self.x_val = val
 
                         # We can't reset the value, so we need to check if the last value was the min (0) or max (127) and if so, increment or decrement the change
+                        change = 0
                         if self.x_val == 0 and val == 0:
-                            update.x_change -= 1
+                            change = -1
+                            # self.x_val = 99999
                         elif self.x_val == 127 and val == 127:
-                            update.x_change += 1
+                            change = 1
+                            # self.x_val = -99999
                         else:
-                            update.x_change += val - self.x_val
+                            change = val - self.x_val
+
                         self.x_val = val
+                        update.x_change -=  change  # Subtract because the knobs are backwards
+
                     elif msg.control == self.y_control_channel:
                         if self.y_val is None:
                             self.y_val = val
 
                         # We can't reset the value, so we need to check if the last value was the min (0) or max (127) and if so, increment or decrement the change
+                        change = 0
                         if self.y_val == 0 and val == 0:
-                            update.y_change -= 1
+                            change = -1
                         elif self.y_val == 127 and val == 127:
-                            update.y_change += 1
+                            change = 1
                         else:
-                            update.y_change += val - self.y_val
+                            change = val - self.y_val
+                        
                         self.y_val = val
+                        update.y_change -= change  # Subtract because the knobs are backwards
                     
                     elif msg.control == self.pen_up_control_channel:
                         # Toggle the pen up or down, and do the same in turtle
@@ -101,6 +122,18 @@ class MidiManager:
 
                     elif msg.control == self.go_top_left_control_channel:
                         update.go_top_left = True
+                    
+                    # Clamp the values
+                    update.x_change = clamp(update.x_change * self.preset.x_acceleration, -self.preset.max_x_speed, self.preset.max_x_speed)
+                    update.y_change = clamp(update.y_change * self.preset.y_acceleration, -self.preset.max_y_speed, self.preset.max_y_speed)
+        
+                # self.outport.send(mido.Message("control_change", channel=0, control=self.y_control_channel, value=63))
+                # self.outport.send(
+                #     mido.Message('note_on', note=29, velocity=100, channel=0)
+                # )
+                # self.outport.send(
+                #     mido.Message('note_on', note=13, velocity=100, channel=9)
+                # )
         
         return update  # Return the negative values because the knobs are backwards
 

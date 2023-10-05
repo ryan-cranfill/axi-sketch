@@ -2,6 +2,7 @@ import atexit
 import turtle
 import signal
 
+import presets
 from midi import MidiManager
 from plotter import PlotterManager
 
@@ -28,11 +29,11 @@ ARROW_KEY_MULTIPLIER = 4
 pen_is_down = False
 
 plotter = PlotterManager(WIDTH_MM, HEIGHT_MM)
-midi = MidiManager()
+midi = MidiManager(presets.bcr2000)
 
 # Set up the turtle window
 turtle.setup(width=WINDOW_WIDTH, height=WINDOW_HEIGHT)
-turtle.title("Etch-a-Sketch")
+turtle.title("Axi-Sketch")
 turtle.bgcolor("white")
 
 # Create the turtle
